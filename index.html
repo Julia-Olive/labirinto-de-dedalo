@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>O Labirinto de Dédalo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=VT323&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="stage" class="is-menu">
+    <canvas id="game-canvas" width="320" height="180" aria-label="Labirinto"></canvas>
+
+    <!-- Informações sempre visíveis durante o jogo -->
+    <div id="hud" hidden>
+      <div class="hud-hero frame">
+        <div class="inner">
+          <canvas id="hud-portrait" class="pixelated" width="48" height="48"></canvas>
+          <div class="hud-hero-stats">
+            <div class="unit-name" id="hud-name"></div>
+            <div class="bar"><i id="hud-hp-fill"></i><span id="hud-hp-text"></span></div>
+            <div class="hud-row">Ícaro <div class="bar"><i id="hud-companion-fill"></i><span id="hud-companion-text"></span></div></div>
+            <div class="hud-row" id="hud-breath" hidden>Fôlego <span id="hud-breath-pips"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-center">
+        <div id="hud-exploration">
+          <div class="level-name" id="hud-level"></div>
+          <div class="objective" id="hud-objective"></div>
+          <div class="escape-timer" id="hud-timer" hidden></div>
+        </div>
+        <div id="boss-panel" class="frame" hidden>
+          <div class="inner">
+            <div class="boss-name" id="boss-name"></div>
+            <div class="bar enemy"><i id="boss-hp-fill"></i><span id="boss-hp-text"></span></div>
+          </div>
+        </div>
+        <div class="boss-warning" id="boss-warning"></div>
+      </div>
+
+      <div class="hud-inventory frame">
+        <div class="inner">
+          <div class="seals" title="Selos de bronze"><span>Selos</span><span id="hud-seals"></span></div>
+          <div class="items">
+            <span title="Ambrosia: tecla Q cura 50">Ambrosia <b id="hud-ambrosia">0</b></span>
+            <span title="Tochas: tecla R na luta">Tochas <b id="hud-torches">0</b></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="key-hints" id="keys-exploration">
+        <span><kbd>WASD</kbd>/<kbd>Setas</kbd> andar</span>
+        <span><kbd>Q</kbd> ambrosia</span>
+        <span><kbd>J</kbd> diário</span>
+        <span><kbd>H</kbd> ajuda</span>
+        <span><kbd>M</kbd> som</span>
+        <span><kbd>Esc</kbd> pausa</span>
+      </div>
+      <div class="key-hints" id="keys-fight" hidden>
+        <span><kbd>Espaço</kbd> atacar</span>
+        <span><kbd>Shift</kbd> escudo</span>
+        <span><kbd>E</kbd> golpe heroico</span>
+        <span><kbd>R</kbd> tocha</span>
+        <span><kbd>Q</kbd> ambrosia</span>
+        <span><kbd>Esc</kbd> pausa</span>
+      </div>
+
+      <div class="minimap-frame frame">
+        <canvas id="minimap" class="pixelated"></canvas>
+        <div class="saved-badge" id="saved-badge">Salvo</div>
+      </div>
+    </div>
+
+    <!-- Caixa de fala: aparece durante o jogo sem pausá-lo -->
+    <div id="dialogue" class="frame" hidden>
+      <div class="inner">
+        <canvas class="pixelated" width="48" height="48"></canvas>
+        <div class="dialogue-body">
+          <div class="dialogue-speaker"></div>
+          <p class="dialogue-text"></p>
+        </div>
+        <div class="dialogue-hint"></div>
+      </div>
+    </div>
+
+    <div id="damage-flash"></div>
+    <div id="toasts" aria-live="polite"></div>
+
+    <!-- Tela de título -->
+    <div id="screen-title" class="screen" hidden>
+      <div class="title-top">
+        <h1>O Labirinto de Dédalo</h1>
+        <p>Uma lenda de Creta</p>
+      </div>
+      <div class="title-bottom">
+        <div class="title-menu">
+          <button class="btn primary" id="button-new-game">Novo jogo</button>
+          <button class="btn" id="button-continue">Continuar</button>
+          <button class="btn" id="button-help">Como jogar</button>
+        </div>
+        <div class="title-hint">Enter confirma · Esc volta · M liga ou desliga o som</div>
+      </div>
+    </div>
+
+    <!-- Escolha do personagem -->
+    <div id="screen-select" class="screen" hidden>
+      <div class="frame">
+        <div class="inner select-panel">
+          <h2>Quem entra no Labirinto?</h2>
+          <div class="hero-cards" role="group" aria-label="Personagem">
+            <button class="hero-card" id="card-m" aria-pressed="true">
+              <img src="assets/img/guerreiro.png" alt="Guerreiro">
+              <span class="role">Guerreiro</span>
+            </button>
+            <button class="hero-card" id="card-f" aria-pressed="false">
+              <img src="assets/img/guerreira.png" alt="Guerreira">
+              <span class="role">Guerreira</span>
+            </button>
+          </div>
+          <div class="hero-form">
+            <label for="hero-name">Nome</label>
+            <input type="text" id="hero-name" maxlength="12" autocomplete="off" spellcheck="false">
+            <p class="field-error" id="hero-name-error" role="alert"></p>
+            <p class="field-help">De 2 a 12 letras. Você pode trocar o nome sugerido.</p>
+            <fieldset>
+              <legend>Dificuldade</legend>
+              <label class="option"><input type="radio" name="difficulty" id="difficulty-normal" value="normal" checked> Herói: o desafio completo</label>
+              <label class="option"><input type="radio" name="difficulty" id="difficulty-easy" value="easy"> História: inimigos causam menos dano e a fuga tem mais tempo</label>
+            </fieldset>
+          </div>
+          <div class="select-actions">
+            <button class="btn" id="button-select-back"><kbd>Esc</kbd>Voltar</button>
+            <button class="btn primary" id="button-select-confirm"><kbd>Enter</kbd>Começar a jornada</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controles de toque (aparecem só em telas sensíveis ao toque) -->
+    <div id="touch-dpad" aria-hidden="true">
+      <span></span><button data-direction="up">▲</button><span></span>
+      <button data-direction="left">◀</button><span></span><button data-direction="right">▶</button>
+      <span></span><button data-direction="down">▼</button><span></span>
+    </div>
+    <div id="touch-actions">
+      <button class="btn primary fight-only" data-action="attack">Atacar</button>
+      <button class="btn fight-only" data-hold="shield">Escudo</button>
+      <button class="btn fight-only" data-action="special">Especial</button>
+      <button class="btn fight-only" data-action="torch">Tocha</button>
+      <button class="btn" data-action="ambrosia">Ambrosia</button>
+      <button class="btn" data-action="pause">Pausa</button>
+    </div>
+
+    <div id="loading">Abrindo os portões…</div>
+  </div>
+
+  <!-- A ordem importa: cada arquivo usa o que os anteriores definem. -->
+  <script src="js/config.js"></script>
+  <script src="js/story.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/assets.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/level.js"></script>
+  <script src="js/dialogue.js"></script>
+  <script src="js/hud.js"></script>
+  <script src="js/modals.js"></script>
+  <script src="js/save.js"></script>
+  <script src="js/exploration.js"></script>
+  <script src="js/combat.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
